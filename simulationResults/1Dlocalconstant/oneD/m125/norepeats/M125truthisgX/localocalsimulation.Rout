@@ -1,0 +1,152 @@
+
+R version 3.4.2 (2017-09-28) -- "Short Summer"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> #Pilot estimate is the truth
+> 
+> rm(list=ls())
+> 
+> ## Assume the working directory is where it was run from in robotnik-net
+> 
+> ## Load packages
+> require(np)
+Loading required package: np
+Nonparametric Kernel Methods for Mixed Datatypes (version 0.60-3)
+[vignette("np_faq",package="np") provides answers to frequently asked questions]
+[vignette("np",package="np") an overview]
+[vignette("entropy_np",package="np") an overview of entropy-based methods]
+> require(parallel)
+Loading required package: parallel
+> 
+> options(np.messages=FALSE)
+> 
+> ## Data generation function
+> data.generate <- function(n,data.type,sigma){
++   if (data.type=="uniformJump"){# 3 uniforms
++     X <- c(seq(0,1,3/n),seq(1+3/n,2,3/n),seq(2+3/n,3,3/(n-1)))
++     oracle <- c(rep(1,length(seq(0,1,3/n))),rep(7,length(seq(1+3/n,2,3/n))),rep(3,length(seq(2+3/n,3,3/n))))
++     Y <- oracle+rnorm(length(oracle),sd=sigma)
++   } else if (data.type=="continuous") { #continuous function
++     X <- seq(1,3,length.out = n)
++     oracle <- 50*((X/3)^2-(X/3)^3)
++     Y <- oracle+rnorm(n,sd = sigma)
++   } else if (data.type=="continuousWithJump"){
++     X <- seq(0,3,length.out = n)
++     X.1 <- X[1:round(length(X)/2)]
++     X.2 <- X[(round(length(X)/2)+1):length(X)] 
++     oracle <- c(50*((X.1/3)^2-(X.1/3)^3),50*((X.2/3)^2-(X.2/3)^3)+5)
++     Y <- oracle+rnorm(n,sd = sigma)
++   } else if (data.type=="gradualJump"){
++     X <- c(seq(0,1,3/n),seq(1+3/n,2,3/n),seq(2+3/n,3,3/(n-1)))
++     oracle <- c(rep(1,length(seq(0,1,3/n))),seq(1,5,4/(length(seq(1+3/n,2,3/n))-1)),rep(5,length(seq(2+3/n,3,3/n))))
++     Y <- oracle+rnorm(length(oracle),sd = sigma)
++   }
++   data.frame(X=X,Y=Y,oracle=oracle)
++ }
+> 
+> ## A Monte Carlo step written as a function
+> simulation.LCAS <- function(seed,n,data.type="uniformJump",sigma,bw.fixed.value=NULL,
++                             repeats=1,ckertype,bwmethod,regtype){
++   set.seed(42+seed)## Generate data
++   data <- data.generate(n,data.type = data.type,sigma = sigma)
++   
++   ## Fit data using local constant kernel estimator (LCKE)
++   # bw.lc <- npregbw(Y~X,data=data,regtype=regtype,bwmethod=bwmethod,ckertype=ckertype)
++   # model.lc <- npreg(bw.lc)
++ 
++   ## Set this temporarily...
++   # model.llc <- model.lc
++ 
++   ## Use LCKE \widehat{g}(x) as pilot g(x) in LCAS for the first time,
++   ## and then LCAS for each repeat
++   for (i in 1:repeats){
++     data <- data.frame(oracle=data$oracle,X=data$X,Y=data$Y,gX=data$oracle)
++     ## Refit data using the local constant estimator as an input
++     bw.llc <- npregbw(Y~X+gX,data=data,regtype=regtype,bwmethod=bwmethod,ckertype=ckertype)
++     if (!is.null(bw.fixed.value)){
++       bw.llc$bw <- c(bw.llc$bw[1],bw.fixed.value)
++     }
++     model.llc <- npreg(bw.llc)
++   }
++ 
++   ## Plotting, if you're interested
++   # plot(data$X,data$Y)
++   # lines(data$X,model.lc$mean,col="green")
++   # lines(data$X,model.llc$mean,col="red")
++   # lines(data$X,data$oracle,col="blue")
++ 
++   ## Check fit with oracle function and retern mean squared error
++   model.lc.ESE <- 0 #we already have this so we don't bother
++   model.llc.ESE <- mean((model.llc$mean-data$oracle)^2)
++   c(model.lc.ESE,model.llc.ESE)
++ }  
+> 
+> ## Code to run all simulations desired, need different number of points, 
+> ## variability of data, and kernel type, and split by number of cores
+> 
+> cores <- detectCores()-1
+> 
+> kernel.type <- "uniform" #could try others in the future
+> bandwidth.selection.method <- "cv.ls" #could try others in the future
+> regression.type <- "lc" #lc for local constant, ll for local linear
+> data.types <- c("uniformJump","continuous","continuousWithJump","gradualJump")
+> repeats <- 1 #how many times to repeat the LCAS smoother
+> bw.fixed.value <- NULL #set this for specifying the LCAS bw value
+> 
+> M <- 125 #number of Monte Carlo replicates, 63*2-1 =125 cores
+> n.seq <- c(100,200,400,800,1600,3200,6400,12800)
+> sigma.seq <- c(0.1,0.5,1,2)
+> 
+> lcr.MSE <- numeric(length(n.seq))
+> lcas.MSE <- numeric(length(n.seq))
+> lcr.ESE <- matrix(numeric(M),M,length(n.seq))
+> lcas.ESE <- matrix(numeric(M),M,length(n.seq))
+> 
+> date.started <- as.character(Sys.Date())
+> time.started <- proc.time()
+> 
+> for (data.type in data.types){
++   for (sigma in sigma.seq){
++     for (N in 1:length(n.seq)){
++       dum = mclapply(1:M,function(m) simulation.LCAS(m,n.seq[N],data.type,
++                                                      sigma,bw.fixed.value,
++                                                      repeats, kernel.type,
++                                                      bandwidth.selection.method,
++                                                      regression.type),
++                      mc.cores=cores)
++       lcr.ESE[,N] <- simplify2array(dum)[1,]
++       lcas.ESE[,N] <- simplify2array(dum)[2,]
++     }
++     
++     return.SEs <- data.frame(lcr=lcr.ESE,lcas=lcas.ESE)
++     colnames(return.SEs) <- c(paste("lcr",n.seq,sep="."),paste("lcas",n.seq,sep="."))
++     ## Write the current data into a file so we can use it in the future
++     write.csv(return.SEs,paste("results/LCASsimulation",date.started,data.type,
++               sigma,repeats,"csv",sep = "_"),row.names = FALSE)
++   }
++ }
+> 
+> proc.time()-time.started
+       user      system     elapsed 
+3450188.712    1659.834   72398.343 
+> 
+> proc.time()
+       user      system     elapsed 
+3450192.318    1665.057   72400.552 
