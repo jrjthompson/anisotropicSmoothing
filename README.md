@@ -1,5 +1,6 @@
 # Anisotropic Smoothing
-This repo is code associated with the journal article "Iterative Smoothing for Change-point Regression Function Estimation", which is under revision. Previous (and likely outdated) versions of this article can be found [on arXiv](https://arxiv.org/abs/2012.00180).
+This repo is code and methods for a general class of smoothing estimators for change-point regression functions. Articles associated with this work are:
+   - "Iterative Smoothing for Change-point Regression Function Estimation", currently under review. Previous (and likely outdated) versions of this article can be found [on arXiv](https://arxiv.org/abs/2012.00180).
  
 ## Experimental fire spread data
 The experimental fire data used in the article is associated with the following paper
