@@ -1,9 +1,3 @@
-#Pilot estimate is the truth
-
-rm(list=ls())
-
-## Assume the working directory is where it was run from in robotnik-net
-
 ## Load packages
 require(np)
 require(parallel)
@@ -34,63 +28,55 @@ data.generate <- function(n,data.type,sigma){
   data.frame(X=X,Y=Y,oracle=oracle)
 }
 
-## A Monte Carlo step written as a function
-simulation.LCAS <- function(seed,n,data.type="uniformJump",sigma,bw.fixed.value=NULL,
+## A Monte Carlo replicate written as a function
+simulation.ALC <- function(seed,n,data.type="uniformJump",sigma,bw.fixed.value=NULL,
                             repeats=1,ckertype,bwmethod,regtype){
   set.seed(42+seed)## Generate data
   data <- data.generate(n,data.type = data.type,sigma = sigma)
   
-  ## Fit data using local constant kernel estimator (LCKE)
-  # bw.lc <- npregbw(Y~X,data=data,regtype=regtype,bwmethod=bwmethod,ckertype=ckertype)
-  # model.lc <- npreg(bw.lc)
+  ## Fit data using local constant kernel estimator (LC) 
+  bw.lc <- npregbw(Y~X,data=data,regtype=regtype,bwmethod=bwmethod,ckertype=ckertype)
+  model.lc <- npreg(bw.lc)
+  model.alc <- model.lc #set this temporarily
 
-  ## Set this temporarily...
-  # model.llc <- model.lc
-
-  ## Use LCKE \widehat{g}(x) as pilot g(x) in LCAS for the first time,
-  ## and then LCAS for each repeat
+  ## Use LC \widehat{g}(x) as pilot g(x) in ALC for the first time,
+  ## and then ALC for each repeat
   for (i in 1:repeats){
-    data <- data.frame(oracle=data$oracle,X=data$X,Y=data$Y,gX=data$oracle)
+    data <- data.frame(oracle=data$oracle,X=data$X,Y=data$Y,gX=data$oracle) #replace data$oracle with model.alc$mean if you want ALC smoothing 
     ## Refit data using the local constant estimator as an input
     bw.llc <- npregbw(Y~X+gX,data=data,regtype=regtype,bwmethod=bwmethod,ckertype=ckertype)
     if (!is.null(bw.fixed.value)){
       bw.llc$bw <- c(bw.llc$bw[1],bw.fixed.value)
     }
-    model.llc <- npreg(bw.llc)
+    model.alc <- npreg(bw.llc)
   }
-
-  ## Plotting, if you're interested
-  # plot(data$X,data$Y)
-  # lines(data$X,model.lc$mean,col="green")
-  # lines(data$X,model.llc$mean,col="red")
-  # lines(data$X,data$oracle,col="blue")
 
   ## Check fit with oracle function and retern mean squared error
   model.lc.ESE <- 0 #we already have this so we don't bother
-  model.llc.ESE <- mean((model.llc$mean-data$oracle)^2)
-  c(model.lc.ESE,model.llc.ESE)
+  model.alc.ESE <- mean((model.alc$mean-data$oracle)^2)
+  c(model.lc.ESE,model.alc.ESE)
 }  
 
-## Code to run all simulations desired, need different number of points, 
+## Code to run MC simulations, change number of points, 
 ## variability of data, and kernel type, and split by number of cores
 
 cores <- detectCores()-1
 
-kernel.type <- "uniform" #could try others in the future
-bandwidth.selection.method <- "cv.ls" #could try others in the future
+kernel.type <- "gaussian" #could try other options
+bandwidth.selection.method <- "cv.ls" #could try other options
 regression.type <- "lc" #lc for local constant, ll for local linear
 data.types <- c("uniformJump","continuous","continuousWithJump","gradualJump")
-repeats <- 1 #how many times to repeat the LCAS smoother
-bw.fixed.value <- NULL #set this for specifying the LCAS bw value
+repeats <- 1 #how many times to repeat the ALC smoother, default is 1
+bw.fixed.value <- NULL #set this for specifying the ALC bw value
 
 M <- 125 #number of Monte Carlo replicates, 63*2-1 =125 cores
-n.seq <- c(100,200,400,800,1600,3200,6400,12800)
+n.seq <- c(100,200,400,800,1600)#,3200,6400,12800)
 sigma.seq <- c(0.1,0.5,1,2)
 
 lcr.MSE <- numeric(length(n.seq))
-lcas.MSE <- numeric(length(n.seq))
+ALC.MSE <- numeric(length(n.seq))
 lcr.ESE <- matrix(numeric(M),M,length(n.seq))
-lcas.ESE <- matrix(numeric(M),M,length(n.seq))
+ALC.ESE <- matrix(numeric(M),M,length(n.seq))
 
 date.started <- as.character(Sys.Date())
 time.started <- proc.time()
@@ -98,22 +84,24 @@ time.started <- proc.time()
 for (data.type in data.types){
   for (sigma in sigma.seq){
     for (N in 1:length(n.seq)){
-      dum = mclapply(1:M,function(m) simulation.LCAS(m,n.seq[N],data.type,
+      dum = mclapply(1:M,function(m) simulation.ALC(m,n.seq[N],data.type,
                                                      sigma,bw.fixed.value,
                                                      repeats, kernel.type,
                                                      bandwidth.selection.method,
                                                      regression.type),
                      mc.cores=cores)
       lcr.ESE[,N] <- simplify2array(dum)[1,]
-      lcas.ESE[,N] <- simplify2array(dum)[2,]
+      ALC.ESE[,N] <- simplify2array(dum)[2,]
     }
     
-    return.SEs <- data.frame(lcr=lcr.ESE,lcas=lcas.ESE)
-    colnames(return.SEs) <- c(paste("lcr",n.seq,sep="."),paste("lcas",n.seq,sep="."))
+    return.SEs <- data.frame(lcr=lcr.ESE,ALC=ALC.ESE)
+    colnames(return.SEs) <- c(paste("lcr",n.seq,sep="."),paste("ALC",n.seq,sep="."))
     ## Write the current data into a file so we can use it in the future
-    write.csv(return.SEs,paste("results/LCASsimulation",date.started,data.type,
+    write.csv(return.SEs,paste("ALCsimulation",date.started,data.type,
               sigma,repeats,"csv",sep = "_"),row.names = FALSE)
   }
 }
 
 proc.time()-time.started
+date.started
+as.character(Sys.Date()) #date finished
