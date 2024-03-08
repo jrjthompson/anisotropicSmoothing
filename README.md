@@ -5,4 +5,4 @@ This repo is code associated with the journal article "Iterative Smoothing for C
 The experimental fire data used in the article is associated with the following paper
  - Thompson J.R.J., Wang X.J., & Braun W.J. (2020) [A mouse model for studying fire spread rates using experimental micro-fires](http://www.jenvstat.org/v09/i06). Journal of Environmental Statistics. 9(1), 1-19.
 
-For access or any other questions, please contact the corresponding author at john.thompson@ubc.ca.
+For data access or any other questions, please contact me at john.thompson@ubc.ca.
