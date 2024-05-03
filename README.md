@@ -1,7 +1,9 @@
 # Anisotropic Smoothing
 This repo is code and methods for a general class of smoothing estimators for change-point regression functions. Articles associated with this work are:
    - Thompson, J.R.J. (in press). Iterative Smoothing for Change-point Regression Function Estimation, *Journal of Applied Statistics*.
- 
+
+The methods for this paper are incorporated into the R-package *nonSmooth* (in development).
+
 ## Experimental fire spread data
 The experimental fire data used in the article is associated with the following papers:
  - Thompson, J.R.J., Wang, X.J., & Braun, W.J. (2020) [A mouse model for studying fire spread rates using experimental micro-fires](http://www.jenvstat.org/v09/i06). *Journal of Environmental Statistics*, 9(1), 1-19.
