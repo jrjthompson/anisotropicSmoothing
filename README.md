@@ -2,7 +2,7 @@
 This repo is code and methods for a general class of smoothing estimators for change-point regression functions. Articles associated with this work are:
    - Thompson, J.R.J. (in press). Iterative Smoothing for Change-point Regression Function Estimation, *Journal of Applied Statistics*.
 
-The methods for this paper are incorporated into the R-package *nonSmooth* (in development).
+The methods for this paper are incorporated into the R-package **nonSmooth** (in development).
 
 ## Experimental fire spread data
 The experimental fire data used in the article is associated with the following papers:
