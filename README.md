@@ -1,6 +1,6 @@
 # Anisotropic Smoothing
 This repo is code and methods for a general class of smoothing estimators for change-point regression functions. Articles associated with this work are:
-   - Thompson, J.R.J. (2024). [Iterative Smoothing for Change-point Regression Function Estimation](https://www.tandfonline.com/doi/full/10.1080/02664763.2024.2352759), *Journal of Applied Statistics*, 1–25.
+   - Thompson, J.R.J. (2024) [Iterative Smoothing for Change-point Regression Function Estimation](https://www.tandfonline.com/doi/full/10.1080/02664763.2024.2352759), *Journal of Applied Statistics*, 1–25.
 
 The methods for this paper are incorporated into the R-package **nonSmooth** (in development).
 
